@@ -10,15 +10,20 @@
 #[cfg(test)]
 extern crate test;
 
-use std::any::Any;
-use std::intrinsics::{forget, TypeId};
+use std::intrinsics::forget;
+//use std::any::Any;
+//use std::intrinsics::TypeId;
+pub use with_clone::Any;
+use with_clone::TypeId;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher, Writer};
 use std::mem::{transmute, transmute_copy};
 use std::raw::TraitObject;
 
+#[deriving(Clone)]
 struct TypeIdHasher;
 
+#[deriving(Clone)]
 struct TypeIdState {
     value: u64,
 }
@@ -103,6 +108,50 @@ impl UncheckedBoxAny for Box<Any + 'static> {
     }
 }
 
+mod with_clone {
+    use std::hash::{Hash, Writer};
+
+    /// Pretty much just `std::any::Any + Clone`.
+    pub trait Any: ::std::any::Any + Clone {
+        /// Clone `self` into a new `Box<Any>` object.
+        fn clone_to_any(&self) -> Box<Any> {
+            box self.clone()
+        }
+    }
+
+    impl<T: 'static + Clone> Any for T { }
+
+    impl Clone for Box<Any> {
+        fn clone(&self) -> Box<Any> {
+            self.clone_to_any()
+        }
+    }
+
+    /// TypeId, but implementing Clone.
+    #[deriving(PartialEq, Eq, Show)]
+    pub struct TypeId(::std::intrinsics::TypeId);
+
+    impl TypeId {
+        pub fn of<T: 'static>() -> TypeId {
+            TypeId(::std::intrinsics::TypeId::of::<T>())
+        }
+    }
+
+    impl <S: Writer> Hash<S> for TypeId {
+        #[inline]
+        fn hash(&self, state: &mut S) {
+            let TypeId(ref type_id) = *self;
+            Hash::hash(type_id, state);
+        }
+    }
+
+    impl Clone for TypeId {
+        fn clone(&self) -> TypeId {
+            *self
+        }
+    }
+}
+
 /// A map containing zero or one values for any given type and allowing convenient,
 /// type-safe access to those values.
 ///
@@ -115,7 +164,7 @@ impl UncheckedBoxAny for Box<Any + 'static> {
 /// data.remove::<int>();
 /// assert_eq!(data.get::<int>(), None);
 ///
-/// #[deriving(PartialEq, Show)]
+/// #[deriving(Clone, PartialEq, Show)]
 /// struct Foo {
 ///     str: String,
 /// }
@@ -128,6 +177,7 @@ impl UncheckedBoxAny for Box<Any + 'static> {
 /// ```
 ///
 /// Values containing non-static references are not permitted.
+#[deriving(Clone)]
 pub struct AnyMap {
     data: HashMap<TypeId, Box<Any + 'static>, TypeIdHasher>,
 }

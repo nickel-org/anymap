@@ -9,7 +9,8 @@
 extern crate test;
 
 use std::any::Any;
-use std::intrinsics::{forget, TypeId};
+use std::intrinsics::forget;
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::collections::hash_map;
 use std::hash::{Hasher, Writer};
